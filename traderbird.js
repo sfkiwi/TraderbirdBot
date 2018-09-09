@@ -1,6 +1,7 @@
 const { logger } = require('./logger');
 const { Channel, Account, Filter } = require('./db');
 const { TwitterStream } = require('./twitter');
+const { OrderTaker } = require('./orders');
 const EventEmitter = require('events');
 
 class TraderBirdBot extends EventEmitter {
@@ -9,6 +10,7 @@ class TraderBirdBot extends EventEmitter {
     this.chanid = chanid;
     this.filtermap = {}
     this.namemap = {}
+    this.orders = new OrderTaker();
   }
 
   async loadData() {
@@ -31,7 +33,7 @@ class TraderBirdBot extends EventEmitter {
     }
   }
 
-  tweetHandler(event) {
+ async tweetHandler(event) {
 
     if (!event) {
       logger.info('Event was null');
@@ -56,7 +58,7 @@ class TraderBirdBot extends EventEmitter {
       let [text, found] = this.parseTweet(tweet)
 
       if (found.length > 0 || filters.length === 0) {
-        this.namemap[screen_name].createTweet({
+        let t = await this.namemap[screen_name].createTweet({
           text: tweet,
           isQuote: false,
           isReply: !!reply,
@@ -65,14 +67,28 @@ class TraderBirdBot extends EventEmitter {
           timestamp_ms: event.timestamp_ms
         });
 
-        let buttons = found.map((keyword, index) => ([{
-          text: `buy ${this.channel.buySize*100}% ${keyword}/${this.channel.buyBase}`,
-          callback_data: index
-        }]))
+        let orders = found.map((keyword, index) => ({
+          buyBase: keyword,
+          buyQuote: this.channel.buyQuote,
+          buySize: this.channel.buySize
+        }));
+
+        let ids = await Promise.all(orders.map(order => this.orders.saveOrder(t, this.channel, order)));
+
+        let buttons = ids.map((id, i) => (
+          [{
+            text: `buy ${this.channel.buySize*100}% ${found[i]}/${this.channel.buyQuote}`,
+            callback_data: 'buy' + id
+          }]
+        ));
+
         this.emit('tweet', {
           text: `@${screen_name} - ${text}`,
           inline_keyboard: buttons
         });
+
+
+        t.save();
       }
       return
     }
@@ -227,23 +243,51 @@ class TraderBirdBot extends EventEmitter {
     }
   }
 
-  setBase(base, res) {
-    if (base && typeof base === 'string') {
-      switch(base.toUpperCase()) {
+  setQuote(quote, res) {
+    if (quote && typeof quote === 'string') {
+      switch(quote.toUpperCase()) {
         case 'BTC':
         case 'ETH':
         case 'BNB':
         case 'USDT':
-          this.channel.update({buyBase: base})
-          res(`Updated base currency pair to ${base}`);   
+          this.channel.update({buyQuote: quote})
+          res(`Updated quote currency pair to ${quote}`);   
           break;
         default:
-          res(`Sorry ${base} is not supported`);   
+          res(`Sorry ${quote} is not supported`);   
           break;    
       }
 
     } else {
-      res(`Specify which base currency to use from either BTC, ETH, BNB or USDT`);
+      res(`Specify which quote currency to use from either BTC, ETH, BNB or USDT`);
+    }
+  }
+
+  async placeBuyOrder(id, res) {
+    let result = await this.orders.executeBuyOrder(id);
+    if (result) {
+
+      let button = [{
+        text: `sell ${result.buyBase}/${result.buyQuote}`,
+        callback_data: 'sell' + result.id
+      }]
+
+      this.emit('tweet', {
+        text: `Order Placed for ${result.buyBase}/${result.buyQuote}`,
+        inline_keyboard: [button]
+      });
+
+    } else {
+      res(`Unable to place buy order`);
+    }
+  }
+
+  async placeSellOrder(id, res) {
+    let result = await this.orders.executeSellOrder(id);
+    if (result) {
+      res(`Order completed for ${result.sellBase}/${result.sellQuote}`)
+    } else {
+      res(`Unable to place sell order`);
     }
   }
 }

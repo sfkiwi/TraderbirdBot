@@ -28,7 +28,9 @@ class TelegramBot extends EventEmitter {
     this.on('following', this.tbb.getAccounts.bind(this.tbb));
     this.on('filters', this.tbb.getFilters.bind(this.tbb));
     this.on('size', this.tbb.setSize.bind(this.tbb));
-    this.on('base', this.tbb.setBase.bind(this.tbb));
+    this.on('quote', this.tbb.setQuote.bind(this.tbb));
+    this.on('buy', this.tbb.placeBuyOrder.bind(this.tbb));
+    this.on('sell', this.tbb.placeSellOrder.bind(this.tbb));
   }
 
   broadcastMessage(message) {
@@ -94,6 +96,19 @@ async function getUpdates() {
     if (result.length) {
       result.forEach((item) => {
 
+        if (item.callback_query) {
+          let cb = item.callback_query.data;
+          let match = /(buy|sell)(.*)/.exec(cb);
+
+          if (!match) {
+            return;
+          }
+
+          let [res, cmd, data] = match;
+
+          let chatid = item.callback_query.message.chat.id;
+          channelMap[chatid].processCommand(cmd, data);
+        }
         if (!item.message) {
           return
         }
@@ -104,7 +119,7 @@ async function getUpdates() {
           Channel.findOrCreate({ chatid: chatid, defaults: { chatid: chatid }})
         }
         
-        let match = /\/(addfilter|add|removefilter|following|remove|filters|size|base)\s*@*(.*)/.exec(item.message.text);
+        let match = /\/(addfilter|add|removefilter|following|remove|filters|size|quote)\s*@*(.*)/.exec(item.message.text);
         
         if (!match) {
           return;
@@ -123,7 +138,7 @@ async function getUpdates() {
       offset = result[result.length - 1].update_id + 1;
     }
   } catch(err) {
-    logger.error('Telegram Error:', err);
+    logger.error('Telegram Error:', err.message);
   } finally {
     setImmediate(() => {
       getUpdates();
