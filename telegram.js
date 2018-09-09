@@ -78,6 +78,11 @@ async function getUpdates() {
 
     if (result.length) {
       result.forEach((item) => {
+        
+        if (!item.message) {
+          return
+        }
+
         let chatid = item.message.chat.id;
         if (!channelMap[chatid]) {
           channelMap[chatid] = new TelegramBot(chatid)
