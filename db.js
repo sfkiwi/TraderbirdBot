@@ -22,7 +22,17 @@ const Filter = sequelize.define('filter', {
 });
 
 const Channel = sequelize.define('channel', {
-  chatid: Sequelize.STRING
+  chatid: {
+    type: Sequelize.STRING,
+  },
+  buySize: {
+    type: Sequelize.FLOAT,
+    defaultValue: 1.0
+  },
+  buyBase: {
+    type: Sequelize.STRING,
+    defaultValue: 'BTC'
+  }
 });
 
 const Tweet = sequelize.define('tweet', {

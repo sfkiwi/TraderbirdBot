@@ -27,10 +27,21 @@ class TelegramBot extends EventEmitter {
     this.on('removefilter', this.tbb.removeFilter.bind(this.tbb));
     this.on('following', this.tbb.getAccounts.bind(this.tbb));
     this.on('filters', this.tbb.getFilters.bind(this.tbb));
+    this.on('size', this.tbb.setSize.bind(this.tbb));
+    this.on('base', this.tbb.setBase.bind(this.tbb));
   }
 
   broadcastMessage(message) {
-    this.sendMessage(message, { body: { parse_mode: 'HTML' }});
+    let text = message.text;
+    let keyboard = message.inline_keyboard;
+    let options = { body: { parse_mode: 'HTML' }};
+
+    if (keyboard) {
+      options.body.reply_markup = {
+        inline_keyboard: keyboard
+      }
+    }
+    this.sendMessage(text, options);
   }
 
   processCommand(command, data) {
@@ -38,6 +49,10 @@ class TelegramBot extends EventEmitter {
   }
 
   sendMessage(text, options={}) {
+
+    if (!options.body) {
+      options.body = {}
+    }
 
     options.body.text = text;
     options.body.chat_id = this.chatid;
@@ -78,7 +93,7 @@ async function getUpdates() {
 
     if (result.length) {
       result.forEach((item) => {
-        
+
         if (!item.message) {
           return
         }
@@ -86,9 +101,10 @@ async function getUpdates() {
         let chatid = item.message.chat.id;
         if (!channelMap[chatid]) {
           channelMap[chatid] = new TelegramBot(chatid)
+          Channel.findOrCreate({ chatid: chatid, defaults: { chatid: chatid }})
         }
         
-        let match = /\/(addfilter|add|removefilter|following|remove|filters)\s*@*(.*)/.exec(item.message.text);
+        let match = /\/(addfilter|add|removefilter|following|remove|filters|size|base)\s*@*(.*)/.exec(item.message.text);
         
         if (!match) {
           return;

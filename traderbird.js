@@ -14,7 +14,6 @@ class TraderBirdBot extends EventEmitter {
   async loadData() {
     try {
       [this.channel] = await Channel.findOrCreate({ where: { chatid: this.chanid }, defaults: { chatid: this.chanid }})
-      
       let accounts = await this.channel.getAccounts()
       accounts.forEach(account => {
         this.namemap[account.username] = account
@@ -65,7 +64,15 @@ class TraderBirdBot extends EventEmitter {
           userid: userid,
           timestamp_ms: event.timestamp_ms
         });
-        this.emit('tweet', `@${screen_name} - ${text}`);
+
+        let buttons = found.map((keyword, index) => ([{
+          text: `buy ${this.channel.buySize*100}% ${keyword}/${this.channel.buyBase}`,
+          callback_data: index
+        }]))
+        this.emit('tweet', {
+          text: `@${screen_name} - ${text}`,
+          inline_keyboard: buttons
+        });
       }
       return
     }
@@ -203,6 +210,41 @@ class TraderBirdBot extends EventEmitter {
       text = 'No Filters'
     }
     res(text)
+  }
+
+  setSize(size, res) {
+    if (size) {
+      const s = size;
+      try {
+        let sizeFloat = parseFloat(s)
+        this.channel.update({buySize: sizeFloat})
+        res(`Updated buy size to ${s}`)
+      } catch (err) {
+        res(`Unable to convert to a number. Try /size 0.1 for 10% of avail bal`);       
+      }
+    } else {
+      res(`Try adding the size. e.g. 0.1 (10% of avail bal)`);
+    }
+  }
+
+  setBase(base, res) {
+    if (base && typeof base === 'string') {
+      switch(base.toUpperCase()) {
+        case 'BTC':
+        case 'ETH':
+        case 'BNB':
+        case 'USDT':
+          this.channel.update({buyBase: base})
+          res(`Updated base currency pair to ${base}`);   
+          break;
+        default:
+          res(`Sorry ${base} is not supported`);   
+          break;    
+      }
+
+    } else {
+      res(`Specify which base currency to use from either BTC, ETH, BNB or USDT`);
+    }
   }
 }
 
