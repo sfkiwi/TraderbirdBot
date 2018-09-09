@@ -31,7 +31,7 @@ const logger = createLogger({
     }),
     new transports.DailyRotateFile({
       filename: 'logs/TraderBirdBot-%DATE%.log',
-      datePattern: 'YYYY-MM-DD-HH',
+      datePattern: 'YYYY-MM-DD',
       zippedArchive: false,
       maxSize: '20m',
       maxFiles: '14d',
