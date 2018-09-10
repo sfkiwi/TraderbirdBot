@@ -42,14 +42,27 @@ class TwitterStream {
   }
 
   restartStream(delay = this.backoff) {
+
+    if (this.restarting) {
+      this.queueRestart = true;
+      return;
+    }
+
+    this.restarting = true;
+
     this.stopStream();
+    
     setTimeout(() => {
+      this.queueRestart = false
       logger.info(`[${this.id}] Restarting Stream after ${this.backoff/1000} seconds`)
       this.stream = this.getStream(this.userids, this.onTweet, this.onError);
     }, this.backoff)
   }
 
   handleStreamError(error, ...rest) {
+    this.restarting = false;
+    this.queueRestart = false;
+
     if (error.message === 'Status Code: 420') {
       this.restartStream(this.backoff);
       this.backoff *= 2;
@@ -59,10 +72,17 @@ class TwitterStream {
   }
 
   handleStreamConnect(response) {
+    this.restarting = false;
+
     logger.info(`[${this.id}] Stream Response [Status Code: ${response.statusCode}]`);
     if (response.statusCode === 200) {
       this.backoff = BACKOFF_TIMEOUT;
       this.attempts = 0;
+    }
+
+    if (this.queueRestart) {
+      this.queueRestart = false;
+      this.restartStream()
     }
   }
 

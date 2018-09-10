@@ -9,7 +9,11 @@ const dbhost = process.env.DB_HOSTNAME;
 
 const sequelize = new Sequelize(dbname, dbuser, dbpass, {
   host: dbhost,
-  dialect: 'mysql'
+  dialect: 'mysql',
+  dialectOptions: {
+    charset: 'utf8',
+    collate: 'utf8_general_ci',
+  },
 });
 
 const Account = sequelize.define('account', {
@@ -53,6 +57,10 @@ const Tweet = sequelize.define('tweet', {
   isRetweet: Sequelize.BOOLEAN,
   userid: Sequelize.TEXT,
   timestamp_ms: Sequelize.STRING,
+},
+{ 
+  charset: 'utf8', 
+  collate: 'utf8_unicode_ci' 
 });
 
 const ChannelAccount = sequelize.define('channelaccount', {});

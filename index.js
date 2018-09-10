@@ -5,7 +5,6 @@ const db = require('./db');
 
 let run  = async () => {
   await db.sync();
-
   require('./telegram');
 }
 

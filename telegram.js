@@ -66,7 +66,6 @@ class TelegramBot extends EventEmitter {
 
 
 
-
 Channel.findAll({ attributes: ['chatid']})
   .then((channels) => {
     if (channels.length) {
@@ -76,6 +75,7 @@ Channel.findAll({ attributes: ['chatid']})
       channels[bot.chatid] = bot
     }
   });
+
 
 let offset = 0;
 

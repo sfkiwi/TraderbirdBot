@@ -54,13 +54,20 @@ class TraderBirdBot extends EventEmitter {
     let elapsed2 = (time - createdtime) / 1000;
 
     if (this.namemap[screen_name]) {
-      logger.log('info', `TWEET by ${screen_name} [${elapsed}|${elapsed2}]: ${tweet}`);
+      if (reply) {
+        logger.log('info', `REPLY by ${screen_name} [${elapsed}|${elapsed2}]: ${tweet}`);
+      } else if (retweet) {
+        logger.log('info', `RETWEET by ${screen_name} [${elapsed}|${elapsed2}]: ${tweet}`);
+      } else {
+        logger.log('info', `TWEET by ${screen_name} [${elapsed}|${elapsed2}]: ${tweet}`);
+      }
+
       let [text, found] = this.parseTweet(tweet)
 
-      if (found.length > 0 || filters.length === 0) {
+      if (found.length > 0 || Object.keys(this.filtermap).length === 0) {
         let t = await this.namemap[screen_name].createTweet({
           text: tweet,
-          isQuote: false,
+          isQuote: null,
           isReply: !!reply,
           isRetweet: !!retweet,
           userid: userid,
@@ -82,8 +89,9 @@ class TraderBirdBot extends EventEmitter {
           }]
         ));
 
+        let tweetType = reply ? 'REPLY' : (retweet ? 'RETWEET' : 'TWEET');
         this.emit('tweet', {
-          text: `@${screen_name} - ${text}`,
+          text: `${tweetType} @${screen_name} - ${text}`,
           inline_keyboard: buttons
         });
 
@@ -107,8 +115,9 @@ class TraderBirdBot extends EventEmitter {
   parseTweet(text) {
 
     let found = [];
+    let textUpper = text.toUpperCase();
     Object.keys(this.filtermap).forEach(async (filter) => {
-      let i = text.indexOf(filter)
+      let i = textUpper.indexOf(filter)
       if (i >= 0) {
         text = text.slice(0, i) + '<b>' +
           text.slice(i, i + filter.length) + '</b>' +
@@ -123,14 +132,20 @@ class TraderBirdBot extends EventEmitter {
   async _addAccount(username, res) {
     try {
       let [id] = await this.twitter.getUserId(username);
-      let [account] = await Account.findOrCreate({ where: { username: username }, defaults: { username: username, userid: id.id_str }})
+
+      if (this.namemap[id.screen_name]) {
+        res(`Looks like I'm already following ${username}`);
+        return;
+      }
+
+      let [account] = await Account.findOrCreate({ where: { username: id.screen_name }, defaults: { username: id.screen_name, userid: id.id_str }})
       await this.channel.addAccount(account)
-      this.namemap[username] = account; 
+      this.namemap[id.screen_name] = account; 
       this.twitter.addUserId(id.id_str);
-      res(`Adding ${username}`);
+      res(`Adding ${id.screen_name}`);
     } catch([err]) {
       if (err.code === 17) {
-        res(`Can't find a twitter account with the username '${username}'`)
+        res(`Can't find a twitter account with the username '${id.screen_name}'`)
       }
       logger.error('TraderBird.addUser', err);
     }
@@ -141,37 +156,42 @@ class TraderBirdBot extends EventEmitter {
 
       logger.info(`Adding ${username}`);
 
-      if (this.namemap[username]) {
-        res(`Looks like I'm already following ${username}`);
-        return;
-      }
-
       this._addAccount(username, res);
     } else {
       res(`Did you add the @ before the username? Try /add @bitcoin for example`);
     }
   }
 
+  getScreenName(username) {
+    let names = Object.keys(this.namemap);
+    for (let name of names) {
+      if (username.toLowerCase() === name.toLowerCase()) {
+        return name;
+      }
+    }
+  }
+
   removeAccount(username, res) {
     if (username) {
-      
-      if (this.namemap[username]) {
-        let account = this.namemap[username];
+      let screenName = this.getScreenName(username);
+      if (screenName) {
+        let account = this.namemap[screenName];
         this.twitter.removeUserId(account.userid);
         this.channel.removeAccount(account);
-        delete this.namemap[username]
-        res(`Removing ${username}`);
+        delete this.namemap[screenName]
+        res(`Removing ${screenName}`);
       } else {
-        res(`Sorry I couldn't find ${username}, Try /following to see which accounts I'm following`);
+        res(`Sorry I couldn't find ${screenName}, Try /following to see which accounts I'm following`);
       }        
     } else {
-      res(`Did you add the @ before the username? Try /remove @facebook for example`);
+      res(`Did you add the username? Try /remove facebook for example`);
     }
   }
 
   async _addFilter(keyword, res) {
     try {
-      let [filter] = await Filter.findOrCreate({ where: { keyword: keyword }, defaults: { keyword: keyword } })
+      let key = keyword.toUpperCase();
+      let [filter] = await Filter.findOrCreate({ where: { keyword: key }, defaults: { keyword: key } })
       await this.channel.addFilter(filter)
       this.filtermap[filter.keyword] = filter;
       res(`Adding ${keyword}`);
@@ -185,7 +205,7 @@ class TraderBirdBot extends EventEmitter {
 
       logger.info(`Adding Filter '${keyword}'`);
 
-      if (this.filtermap[keyword]) {
+      if (this.filtermap[keyword.toUpperCase()]) {
         res(`Looks like I already have ${keyword}`);
         return;
       }
@@ -199,10 +219,11 @@ class TraderBirdBot extends EventEmitter {
   removeFilter(keyword, res) {
     if (keyword) {
 
-      if (this.filtermap[keyword]) {
-        let filter = this.filtermap[keyword];
+      let key = keyword.toUpperCase()
+      if (this.filtermap[key]) {
+        let filter = this.filtermap[key];
         this.channel.removeFilter(filter);
-        delete this.filtermap[keyword]
+        delete this.filtermap[key]
         res(`Removing ${keyword}`);
       } else {
         res(`I couldn't find ${keyword}, Try /filters to see which terms I'm searching for`);

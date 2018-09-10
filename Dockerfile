@@ -15,7 +15,7 @@ RUN yarn
 # Bundle app source
 COPY . .
 
-VOLUME ["/logs"]
+VOLUME ["/app/logs"]
 EXPOSE 3000
 
 CMD [ "yarn", "run", "start" ]
