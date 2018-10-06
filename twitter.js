@@ -2,6 +2,7 @@ var Twitter = require('twitter');
 const { promisify } = require('util');
 const getBearerToken = promisify(require('get-twitter-bearer-token'))
 const { logger } = require('./logger');
+const { SendError } = require('./telegram');
 
 const BACKOFF_TIMEOUT = 60000;
 
@@ -39,6 +40,7 @@ class TwitterStream {
 
   handleStreamEnd(response) {
     logger.info(`[${this.id}] Stream Ended [Status Code: ${response.statusCode}]`);
+    this.restartStream();
   }
 
   restartStream(delay = this.backoff) {
@@ -63,12 +65,12 @@ class TwitterStream {
     this.restarting = false;
     this.queueRestart = false;
 
-    if (error.message === 'Status Code: 420') {
-      this.restartStream(this.backoff);
-      this.backoff *= 2;
-      this.attempts++;
-    }
+    this.restartStream(this.backoff);
+    this.backoff *= 2;
+    this.attempts++;
+
     logger.error(`[${this.id}] Stream Error: ${error.message}`);
+    SendError(error.message);
   }
 
   handleStreamConnect(response) {

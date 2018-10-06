@@ -1,0 +1,8 @@
+add - add a Twitter account
+remove - remove a Twitter account
+following - see which accounts are followed
+addfilter - add search term
+removefilter - remove search term
+filters - list search terms
+size - set size of order as %
+quote - set base pair of order

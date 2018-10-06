@@ -1,3 +1,18 @@
+// SendError is used inside all of the required modules
+// TODO: This should be fixed
+exports.SendError = SendError = function (error) {
+
+  let options = {
+    body: {
+      text: error,
+      chat_id: '382232505',
+    },
+    json: true
+  }
+
+  request.post(url + sendMessageCmd, options);
+}
+
 const { TraderBirdBot } = require('./traderbird');
 const { Channel } = require('./db');
 const { logger } = require('./logger');
@@ -11,6 +26,8 @@ const sendMessageCmd = 'sendMessage';
 const getUpdatesCmd = 'getUpdates';
 
 let channelMap = {};
+
+
 
 class TelegramBot extends EventEmitter {
   constructor(chatid) {
@@ -31,6 +48,7 @@ class TelegramBot extends EventEmitter {
     this.on('quote', this.tbb.setQuote.bind(this.tbb));
     this.on('buy', this.tbb.placeBuyOrder.bind(this.tbb));
     this.on('sell', this.tbb.placeSellOrder.bind(this.tbb));
+    this.on('price', this.tbb.getPrice.bind(this.tbb));
   }
 
   broadcastMessage(message) {
@@ -119,7 +137,7 @@ async function getUpdates() {
           Channel.findOrCreate({ chatid: chatid, defaults: { chatid: chatid }})
         }
         
-        let match = /\/(addfilter|add|removefilter|following|remove|filters|size|quote)\s*@*(.*)/.exec(item.message.text);
+        let match = /\/(addfilter|add|removefilter|following|remove|filters|size|quote|price)\s*@*(.*)/.exec(item.message.text);
         
         if (!match) {
           return;
@@ -137,8 +155,14 @@ async function getUpdates() {
       });
       offset = result[result.length - 1].update_id + 1;
     }
-  } catch(err) {
-    logger.error('Telegram Error:', err.message);
+  } catch(errs) {
+    if (!(errs instanceof Array)) {
+      errs = [errs]
+    }
+    for (let err of errs) {
+      logger.error(`Telegram Error: ${err.message}`);
+      SendError(err)
+    }
   } finally {
     setImmediate(() => {
       getUpdates();
@@ -146,5 +170,3 @@ async function getUpdates() {
 }
 
 getUpdates();
-
-module.exports = { TelegramBot }

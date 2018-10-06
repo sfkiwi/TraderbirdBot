@@ -3,6 +3,7 @@ const { Channel, Account, Filter } = require('./db');
 const { TwitterStream } = require('./twitter');
 const { OrderTaker } = require('./orders');
 const EventEmitter = require('events');
+const { SendError } = require('./telegram');
 
 class TraderBirdBot extends EventEmitter {
   constructor(chanid) {
@@ -28,8 +29,14 @@ class TraderBirdBot extends EventEmitter {
 
       let userids = accounts.map(account => account.userid);
       this.twitter = new TwitterStream(userids, this.tweetHandler.bind(this), null, this.chanid);
-    } catch(err) {
-      logger.error('TraderBird.loadData', err);
+    } catch(errs) {
+      if (!(errs instanceof Array)) {
+        errs = [err]
+      }
+      for (let err of errs) {
+        logger.error(`TraderBird.loadData: ${err.message}`);
+        SendError(err);
+      }
     }
   }
 
@@ -143,11 +150,17 @@ class TraderBirdBot extends EventEmitter {
       this.namemap[id.screen_name] = account; 
       this.twitter.addUserId(id.id_str);
       res(`Adding ${id.screen_name}`);
-    } catch([err]) {
-      if (err.code === 17) {
-        res(`Can't find a twitter account with the username '${id.screen_name}'`)
+    } catch(errs) {
+      if (!(errs instanceof Array)) {
+        errs = [errs]
       }
-      logger.error('TraderBird.addUser', err);
+      for (let err of errs) {
+        if (err.code === 17) {
+          res(`Can't find a twitter account with the username '${username}'`)
+        }
+        logger.error(`TraderBird.addUser: ${err.message}`);
+        SendError(err);
+      }
     }
   }
 
@@ -195,8 +208,14 @@ class TraderBirdBot extends EventEmitter {
       await this.channel.addFilter(filter)
       this.filtermap[filter.keyword] = filter;
       res(`Adding ${keyword}`);
-    } catch ([err]) {
-      logger.error('TraderBird.addUser', err);
+    } catch (errs) {
+      if (!(errs instanceof Array)) {
+        errs = [errs]
+      }
+      for (let err of errs)  {
+        logger.error(`TraderBird.addUser: ${err.message}`);
+        SendError(err);
+      }
     }
   }
 
@@ -284,33 +303,72 @@ class TraderBirdBot extends EventEmitter {
     }
   }
 
+  async getPrice(symbol, res) {
+    try {
+      let price = await this.orders.getPrice(symbol, this.channel.buyQuote);
+      res(`${symbol}${this.channel.buyQuote}: ${price}`);
+    } catch(err) {
+      res(`Unknown trading pair ${symbol}${this.channel.buyQuote}`)
+    }
+  }
+
   async placeBuyOrder(id, res) {
-    let result = await this.orders.executeBuyOrder(id);
-    if (result) {
+    try {
+      let result = await this.orders.executeBuyOrder(id);
+
+      if (!result) {
+        res('This order has already been executed')
+        return;
+      }
 
       let button = [{
-        text: `sell ${result.buyBase}/${result.buyQuote}`,
+        text: `sell ${result.buyExecQty} ${result.buyBase}/${result.buyQuote} (${result.buyId})`,
         callback_data: 'sell' + result.id
       }]
 
       this.emit('tweet', {
-        text: `Order Placed for ${result.buyBase}/${result.buyQuote}`,
+        text: `${result.buyType} Buy Order Placed for ${result.buyExecQty} ${result.buyBase}/${result.buyQuote} \n` + 
+          `Order id: ${result.buyId}\n` +
+          `Remaining Balance: ${result.buyRemainingBalance} ${result.buyQuote}`,
         inline_keyboard: [button]
       });
-
-    } else {
-      res(`Unable to place buy order`);
+    } catch(errs) {
+      if (!(errs instanceof Array)) {
+        errs = [errs]
+      }
+      for (let err of errs) {
+        logger.error(`Orders.executeBuyOrder: ${err.message}`);
+        SendError(err.message);
+        res(`Unable to place buy order: ${err.message}`);
+      }
     }
   }
 
   async placeSellOrder(id, res) {
-    let result = await this.orders.executeSellOrder(id);
-    if (result) {
-      res(`Order completed for ${result.sellBase}/${result.sellQuote}`)
-    } else {
-      res(`Unable to place sell order`);
+    try {
+      let result = await this.orders.executeSellOrder(id);
+
+      if (!result) {
+        res('This order has already been executed')
+        return;
+      }
+
+      res(`${result.buyType} Sell Order Placed for ${result.buyExecQty} ${result.buyBase}/${result.buyQuote} \n` +
+          `Order id: ${result.sellId}\n` +
+          `Remaining Balance: ${result.sellRemainingBalance} ${result.buyQuote}`);
+    } catch (errs) {
+      if (!(errs instanceof Array)) {
+        errs = [errs]
+      }
+      for (let err of errs) {
+        logger.error(`Orders.executeSellOrder: ${err.message}`);
+        SendError(err.message);
+        res(`Unable to place sell order: ${err.message}`);
+      }
     }
   }
+
+  async getTradeSummary()
 }
 
 module.exports = { TraderBirdBot }

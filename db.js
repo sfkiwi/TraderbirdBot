@@ -11,8 +11,7 @@ const sequelize = new Sequelize(dbname, dbuser, dbpass, {
   host: dbhost,
   dialect: 'mysql',
   dialectOptions: {
-    charset: 'utf8',
-    collate: 'utf8_general_ci',
+    charset: 'utf8mb4',
   },
 });
 
@@ -44,10 +43,22 @@ const Order = sequelize.define('order', {
   buyQuote: Sequelize.STRING,
   buyBase: Sequelize.STRING,
   buyTime: Sequelize.DATE,
+  buyId: Sequelize.STRING,
+  buyPrice: Sequelize.STRING,
+  buyOrigQty: Sequelize.STRING,
+  buyExecQty: Sequelize.STRING, 
+  buyType: Sequelize.STRING, 
+  buyRemainingBalance: Sequelize.STRING,
   sellSize: Sequelize.FLOAT,
   sellQuote: Sequelize.STRING,
   sellBase: Sequelize.STRING,
-  sellTime: Sequelize.DATE
+  sellTime: Sequelize.DATE,
+  sellId: Sequelize.STRING,
+  sellPrice: Sequelize.STRING,
+  sellOrigQty: Sequelize.STRING,
+  sellExecQty: Sequelize.STRING,
+  sellType: Sequelize.STRING,
+  sellRemainingBalance: Sequelize.STRING
 })
 
 const Tweet = sequelize.define('tweet', {
