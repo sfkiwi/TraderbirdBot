@@ -367,8 +367,6 @@ class TraderBirdBot extends EventEmitter {
       }
     }
   }
-
-  async getTradeSummary()
 }
 
 module.exports = { TraderBirdBot }
