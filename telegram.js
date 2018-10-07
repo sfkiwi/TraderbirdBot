@@ -33,6 +33,7 @@ class TelegramBot extends EventEmitter {
   constructor(chatid) {
     super();
 
+    this.timeout = 0;
     this.chatid = chatid || process.env.TELEGRAM_CHATID;
     this.tbb = new TraderBirdBot(this.chatid);
     this.tbb.loadData();
@@ -160,13 +161,23 @@ async function getUpdates() {
       errs = [errs]
     }
     for (let err of errs) {
-      logger.error(`Telegram Error: ${err.message}`);
-      SendError(err)
+      if (err.message.includes('Bad Gateway') || err.message.includes('Timed out')) {
+        logger.error(`Telegram Network Error: ${err.message}`);
+        SendError(`Telegram Network Error: ${err.message}`)
+        this.timeout = 1000;
+      } else if (err.message.includes('Unauthorized')) {
+        logger.error(`Telegram Authorization Error: ${err.message}`);
+        SendError(`Telegram Authorization Error: ${err.message}`)
+      } else {
+        logger.error(`Unknown Telegram Error: ${err.message}`);
+        SendError(`Unknown Telegram Error: ${err.message}`)
+      }
     }
   } finally {
-    setImmediate(() => {
+    setTimeout(() => {
+      this.timeout = 0;
       getUpdates();
-    });  }
+    }, this.timeout);  }
 }
 
 getUpdates();

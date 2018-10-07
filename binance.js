@@ -105,6 +105,22 @@ module.exports = {
               reject(new Error(err.body));
               return;
             }
+            // 
+            if (test && Object.keys(res).length === 0) {
+              res = {
+                symbol: pair,
+                orderId: 'test',
+                clientOrderId: 'test',
+                transactTime: 1509049376261,
+                price: '0.00000000',
+                origQty: `${baseSize}`,
+                executedQty: `${baseSize}`,
+                status: 'FILLED',
+                timeInForce: 'GTC',
+                type: 'MARKET',
+                side: 'BUY'
+              }
+            }
             binance.balance((err, bal) => {
               if (err) {
                 reject(err)
@@ -173,6 +189,21 @@ module.exports = {
             if (err) {
               reject(new Error(err.body));
               return;
+            }
+            if (test && Object.keys(res).length === 0) {
+              res = {
+                symbol: pair,
+                orderId: 'test',
+                clientOrderId: 'test',
+                transactTime: 1509049376261,
+                price: '0.00000000',
+                origQty: `${baseSize}`,
+                executedQty: `${baseSize}`,
+                status: 'FILLED',
+                timeInForce: 'GTC',
+                type: 'MARKET',
+                side: 'SELL'
+              }
             }
             binance.balance((err, bal) => {
               if (err) {
