@@ -1,4 +1,5 @@
 var Sequelize = require('sequelize')
+const Op = Sequelize.Op;
 
 
 const dbname = process.env.DB_DBNAME || 'traderbirdbot';
@@ -92,4 +93,4 @@ async function sync() {
   return await sequelize.sync();
 }
 
-module.exports = { Channel, Tweet, Filter, Account, Order, sync };
+module.exports = { Channel, Tweet, Filter, Account, Order, sync, Op };

@@ -1,29 +1,36 @@
+const test = process.env.BINANCE_PRODUCTION ? false : true;
+
 const binance = require('node-binance-api')().options({
   APIKEY: process.env.BINANCE_APIKEY,
   APISECRET: process.env.BINANCE_APISECRET,
   useServerTime: true, // If you get timestamp errors, synchronize to server time at startup
-  test: false // If you want to use sandbox mode where orders are simulated
+  test: test // If you want to use sandbox mode where orders are simulated
 });
 
 const SymbolInfo = {};
 
-binance.exchangeInfo((err, res) => {
-  if (err) {
-    console.error(err);
-    return;
-  }
+(function updateExchangeInfo() {
+  binance.exchangeInfo((err, res) => {
+    if (err) {
+      console.error(err);
+      return;
+    }
 
-  for (let symbol of res.symbols) {
-    let filters = {}
-    symbol.filters.forEach((filter) => {
-      filters[filter.filterType] = filter;
-    });
+    for (let symbol of res.symbols) {
+      let filters = {}
+      symbol.filters.forEach((filter) => {
+        filters[filter.filterType] = filter;
+      });
 
-    symbol.filters = filters;
-    SymbolInfo[symbol.symbol] = symbol;
+      symbol.filters = filters;
+      SymbolInfo[symbol.symbol] = symbol;
 
-  }
-})
+    }
+  })
+
+  setTimeout(updateExchangeInfo, 600000);
+})();
+
 
 module.exports = {
   getPrice: async function(base, quote) {
@@ -179,6 +186,27 @@ module.exports = {
         });
       })
     })
+  },
+
+  getTradeData: async function (symbol, id) {
+    return new Promise((resolve, reject) => {
+      binance.trades(symbol, (error, trades, symbol) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        let matched = [];
+
+        id = parseInt(id);
+        for (let trade of trades) {
+          if (trade.orderId === id) {
+            matched.push(trade)
+          }
+        }
+        resolve(matched);
+        return;
+      });
+    });
   }
 }
 

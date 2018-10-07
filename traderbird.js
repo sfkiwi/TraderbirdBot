@@ -12,6 +12,22 @@ class TraderBirdBot extends EventEmitter {
     this.filtermap = {}
     this.namemap = {}
     this.orders = new OrderTaker();
+    this.updates = {};
+
+    setInterval(() => {
+      for (let id in this.updates) {
+        this.orders.getPrice(this.updates[id].base, this.updates[id].quote)
+          .then((price) => {
+            this.emit('tweet', {
+              text: `${this.updates[id].base}${this.updates[id].quote} @ ${price}`
+            });
+          })
+          .catch(err => {
+            logger.error(`TraderBird.updates: ${err.message}`);
+            SendError(err.message);
+          });
+      }
+    }, 60000)
   }
 
   async loadData() {
@@ -328,10 +344,14 @@ class TraderBirdBot extends EventEmitter {
 
       this.emit('tweet', {
         text: `${result.buyType} Buy Order Placed for ${result.buyExecQty} ${result.buyBase}/${result.buyQuote} \n` + 
+          `Current Market Price: ${result.buyPrice}\n` +
           `Order id: ${result.buyId}\n` +
           `Remaining Balance: ${result.buyRemainingBalance} ${result.buyQuote}`,
         inline_keyboard: [button]
       });
+
+      this.updates[result.buyId] = { base: result.buyBase, quote: result.buyQuote }
+
     } catch(errs) {
       if (!(errs instanceof Array)) {
         errs = [errs]
@@ -353,9 +373,28 @@ class TraderBirdBot extends EventEmitter {
         return;
       }
 
+      delete this.updates[result.buyId];
+
       res(`${result.buyType} Sell Order Placed for ${result.buyExecQty} ${result.buyBase}/${result.buyQuote} \n` +
           `Order id: ${result.sellId}\n` +
           `Remaining Balance: ${result.sellRemainingBalance} ${result.buyQuote}`);
+
+      let summary = await this.orders.tradeSummary(result.buyId);
+      let grossPct = summary.totals.grossProfit / (summary.totals.buyQuote + summary.totals.buyFee);
+      let netPct = summary.totals.netProfit / (summary.totals.buyQuote + summary.totals.buyFee);
+      let bought = summary.buyTrades.reduce((prev, trade) => {
+        return `Bought ${trade.qty} ${result.buyBase} @ ${trade.price} ${result.buyQuote}/${result.buyBase}\n`  
+      }, '');
+      let sold = summary.sellTrades.reduce((prev, trade) => {
+        return `Sold ${trade.qty} ${result.buyBase} @ ${trade.price} ${result.buyQuote}/${result.buyBase}\n`
+      }, '');
+
+      res(bought + sold + 
+        `Entry Fee: ${summary.totals.buyFee} BTC\n` + 
+        `Exit Fee: ${summary.totals.sellFee} BTC\n` + 
+        `Gross Profit: ${summary.totals.grossProfit} BTC (${grossPct})\n` + 
+        `Net Profit: ${summary.totals.netProfit} BTC (${netPct})\n`);
+
     } catch (errs) {
       if (!(errs instanceof Array)) {
         errs = [errs]
