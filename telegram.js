@@ -50,6 +50,9 @@ class TelegramBot extends EventEmitter {
     this.on('buy', this.tbb.placeBuyOrder.bind(this.tbb));
     this.on('sell', this.tbb.placeSellOrder.bind(this.tbb));
     this.on('price', this.tbb.getPrice.bind(this.tbb));
+    this.on('addupdate', this.tbb.addUpdate.bind(this.tbb));
+    this.on('removeupdate', this.tbb.removeUpdate.bind(this.tbb));
+    this.on('stopupdates', this.tbb.stopUpdates.bind(this.tbb));
   }
 
   broadcastMessage(message) {
@@ -138,7 +141,7 @@ async function getUpdates() {
           Channel.findOrCreate({ chatid: chatid, defaults: { chatid: chatid }})
         }
         
-        let match = /\/(addfilter|add|removefilter|following|remove|filters|size|quote|price)\s*@*(.*)/.exec(item.message.text);
+        let match = /\/(addupdate|removeupdate|stopupdates|addfilter|add|removefilter|following|remove|filters|size|quote|price)\s*@*(.*)/.exec(item.message.text);
         
         if (!match) {
           return;

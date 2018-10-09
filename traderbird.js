@@ -364,6 +364,59 @@ class TraderBirdBot extends EventEmitter {
     }
   }
 
+  addUpdate(symbol, res) {
+
+    let sym = symbol.toUpperCase()
+    let quote = this.channel.buyQuote.toUpperCase();
+    let pair = `${sym}${quote}`;
+
+    for (let id in this.updates) {
+      if (this.updates[id].base.toUpperCase() === sym) {
+        if (this.updates[id].quote.toUpperCase() === quote) {
+          res(`Already tracking ${symbol}${this.channel.buyQuote}`)
+          return;
+        }
+      }
+    }
+
+    if (this.updates[pair]) {
+      res(`Already tracking ${symbol}${this.channel.buyQuote}`)
+      return;
+    }
+
+    this.updates[pair] = { base: sym, quote: quote }
+    res(`I'm now tracking ${symbol}${this.channel.buyQuote}`)
+  }
+
+  removeUpdate(symbol, res) {
+    let sym = symbol.toUpperCase();
+    let quote = this.channel.buyQuote.toUpperCase();
+    let pair = `${sym}${quote}`;
+
+    for (let id in this.updates) {
+      if (this.updates[id].base.toUpperCase() === sym) {
+        if (this.updates[id].quote.toUpperCase() === quote) {
+          res(`Stopped Tracking ${symbol}${this.updates[id].quote}`)
+          delete this.updates[id];
+          return;
+        }
+      }
+    }
+
+    if (this.update[pair]) {
+      res(`Stopped Tracking ${symbol}${this.updates[sym].quote}`)
+      delete this.updates[pair]
+      return;
+    }
+
+    res(`I'm not currently tracking ${symbol}${this.channel.buyQuote}`)
+  }
+
+  stopUpdates(res) {
+    this.updates = {};
+    res('I have stopped Tracking all Symbols')
+  }
+
   async placeSellOrder(id, res) {
     try {
       let result = await this.orders.executeSellOrder(id);

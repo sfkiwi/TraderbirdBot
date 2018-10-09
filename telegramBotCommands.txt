@@ -6,3 +6,6 @@ removefilter - remove search term
 filters - list search terms
 size - set size of order as %
 quote - set base pair of order
+addupdate - add symbol to get live price updates
+removeupdate - remove a symbol from live price updates
+stopupdates - stop receiving live price updates
